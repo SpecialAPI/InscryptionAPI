@@ -31,10 +31,10 @@ public static class StarterDeckSelectscreenPatches
                     decksToAdd.RemoveAt(0);
                 }
             });
-            List<List<StarterDeckInfo>> pagesToAdd = new();
+            List<List<StarterDeckInfo>> pagesToAdd = new List<List<StarterDeckInfo>>();
             while (decksToAdd.Count > 0)
             {
-                List<StarterDeckInfo> page = new();
+                List<StarterDeckInfo> page = new List<StarterDeckInfo>();
                 for (int i = 0; i < icons.Count; i++)
                 {
                     if (decksToAdd.Count > 0)
