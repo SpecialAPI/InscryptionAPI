@@ -5,86 +5,100 @@ namespace InscryptionAPI.Ascension;
 
 public class StarterDeckPaginator : MonoBehaviour
 {
-    public void Initialize(AscensionChooseStarterDeckScreen screen)
+    public const int ICONS_PER_PAGE = 8;
+
+    public int starterDeckPageIndex = 0;
+
+    public readonly static int CHALLENGES_PER_ROW = 7;
+
+    public List<AscensionStarterDeckIcon> icons;
+
+    public List<List<StarterDeckInfo>> pages = new();
+
+    private void PageBuilder(List<StarterDeckInfo> starterDecks, int startIdx)
     {
-        if (pages == null)
+        List<StarterDeckInfo> curPage = null;
+        for (int i = startIdx; i < starterDecks.Count; i++)
         {
-            pages = new List<List<StarterDeckInfo>>();
-            pageLength = screen.deckIcons.Count;
-            List<AscensionStarterDeckIcon> sorted = screen.deckIcons;
-            sorted.Sort((x, x2) => Mathf.RoundToInt((Mathf.Abs(x.transform.position.y - x2.transform.position.y) < 0.1f ? x.transform.position.x - x2.transform.position.x : x2.transform.position.y - x.transform.position.y) * 100));
-            List<StarterDeckInfo> page = new List<StarterDeckInfo>();
-            foreach (AscensionStarterDeckIcon icon in sorted)
+            if (curPage == null)
+                curPage = new List<StarterDeckInfo>();
+
+            // Check to see if we need a new page
+            if (curPage.Count == ICONS_PER_PAGE)
             {
-                page.Add(icon.Info);
+                pages.Add(curPage);
+                curPage = new List<StarterDeckInfo>();
             }
-            pages.Add(page);
+
+            curPage.Add(starterDecks[i]);
         }
-        this.screen = screen;
+
+        if (curPage != null)
+            pages.Add(curPage);
     }
 
-    public void AddPage(List<StarterDeckInfo> page)
+    public void GeneratePages()
     {
-        Initialize(GetComponent<AscensionChooseStarterDeckScreen>());
-        if (page.Count < pageLength)
-        {
-            while (page.Count < pageLength)
-            {
-                page.Add(null);
-            }
-        }
-        pages.Add(page);
+        // The first page is nice and easy
+        pages = new();
+        List<StarterDeckInfo> pageOne = new List<StarterDeckInfo>();
+        pageOne.AddRange(StarterDeckManager.AllDeckInfos.GetRange(0, ICONS_PER_PAGE));
+        pages.Add(pageOne);
+
+        // Do the starterDecks
+        if (StarterDeckManager.AllDeckInfos.Count > ICONS_PER_PAGE)
+            PageBuilder(StarterDeckManager.AllDeckInfos, ICONS_PER_PAGE);
     }
 
-    public void NextPage()
+    public void ShowVisibleStarterDecks()
     {
-        pageIndex++;
-        if (pageIndex >= pages.Count)
+        // Sort out which list of starterDecks are the visible ones
+        List<StarterDeckInfo> visibleStarterDecks = pages[starterDeckPageIndex];
+
+        // Make all starterDeck icons inactive
+        foreach (var icon in icons)
+            icon.gameObject.SetActive(false);
+
+        // Start going through and setting the icons
+        for (int i = 0; i < visibleStarterDecks.Count; i++)
         {
-            pageIndex = 0;
+            if (visibleStarterDecks[i] == null) // this is a spacer
+                continue;
+            AscensionStarterDeckIcon targetIcon = this.icons[i];
+            targetIcon.AssignInfo(visibleStarterDecks[i]);
+            targetIcon.gameObject.SetActive(true);
         }
-        LoadPage(pages[pageIndex]);
     }
 
-    public void PreviousPage()
+    public void StarterDeckPageLeft(MainInputInteractable button)
     {
-        pageIndex--;
-        if (pageIndex < 0)
+        if (!AscensionMenuScreens.Instance.starterDeckSelectScreen.activeSelf)
+            return;
+
+        if (starterDeckPageIndex > 0)
         {
-            pageIndex = pages.Count - 1;
+            starterDeckPageIndex -= 1;
+            ShowVisibleStarterDecks();
         }
-        LoadPage(pages[pageIndex]);
     }
 
-    public void LoadPage(List<StarterDeckInfo> page)
+    public void StarterDeckPageRight(MainInputInteractable button)
     {
-        List<AscensionStarterDeckIcon> sorted = screen.deckIcons;
-        sorted.Sort((x, x2) => Mathf.RoundToInt((Mathf.Abs(x.transform.position.y - x2.transform.position.y) < 0.1f ? x.transform.position.x - x2.transform.position.x : x2.transform.position.y - x.transform.position.y) * 100));
-        for (int i = 0; i < pageLength; i++)
+        if (!AscensionMenuScreens.Instance.starterDeckSelectScreen.activeSelf)
+            return;
+
+        if (starterDeckPageIndex < pages.Count - 1)
         {
-            if (i < sorted.Count)
-            {
-                if (i < page.Count)
-                {
-                    sorted[i].starterDeckInfo = page[i];
-                    sorted[i].AssignInfo(page[i]);
-                    if (!sorted[i].Unlocked)
-                    {
-                        sorted[i].conqueredRenderer.enabled = false;
-                    }
-                }
-                else
-                {
-                    sorted[i].starterDeckInfo = null;
-                    sorted[i].AssignInfo(null);
-                    sorted[i].conqueredRenderer.enabled = false;
-                }
-            }
+            starterDeckPageIndex += 1;
+            ShowVisibleStarterDecks();
         }
     }
 
-    public int pageIndex;
-    public List<List<StarterDeckInfo>> pages;
-    public int pageLength;
-    public AscensionChooseStarterDeckScreen screen;
+    public void OnEnable()
+    {
+        StarterDeckManager.SyncDeckList();
+        starterDeckPageIndex = 0;
+        GeneratePages();
+        ShowVisibleStarterDecks();
+    }
 }
